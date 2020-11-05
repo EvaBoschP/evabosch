@@ -1,0 +1,867 @@
+from flask import Flask
+from flask_sslify import SSLify
+from flask import request
+from telebot import TeleBot
+from PIL import Image
+from telebot.types import ReplyKeyboardRemove, \
+    ReplyKeyboardMarkup, KeyboardButton
+from random import randint,sample,choice
+import emoji
+from threading import Thread
+import time
+import pandas as pd
+import pickle
+
+
+app=Flask(__name__)
+sslify=SSLify(app)
+
+
+token = '1447227148:AAEJwNMglNQ-OZkOVxJgTsnU2RxHYJEgBgE'
+bot=TeleBot(token)
+
+
+##to set database for facts' estimation, change if add more
+##run before the start of the presentation
+##a=list(map(lambda x: '0'*(3-len(str(x)))+str(x), range (1,97)))
+##rating=pd.DataFrame({'ind':a,'Интересно!':[0]*len(a), 'Не очень...':[0]*len(a)})
+##rating.to_csv('try.csv',index=False)
+
+#in case info was deleted
+with open('/home/EvaBosch/bot/info.txt', "wb") as f:
+    list(map(lambda x: pickle.dump(x, f), [{},{},{},{},{}]))
+
+
+with open('/home/EvaBosch/bot/reference.txt', "rb") as fp:
+    ref=pickle.load(fp)['ref']
+    [start, who, menu, caps, trees, pricelist, letsplay,
+    rules_trashcans, rules_razlog, rules_mines,dicts
+    ]=map(lambda x: emoji.emojize(x,use_aliases=True),ref)
+
+
+with open('/home/EvaBosch/bot/reference.txt', "wb") as fp:
+    pickle.dump({'ref':[start, who, menu, caps, trees, pricelist, letsplay,
+                        rules_trashcans, rules_razlog, rules_mines,dicts]},fp)
+
+
+with open('/home/EvaBosch/bot/dic.txt', "rb") as fp:
+    dic=pickle.load(fp)
+with open('/home/EvaBosch/bot/dic.txt', "wb") as fp:
+    pickle.dump(dic,fp)
+
+
+koord=[50,250,450,650,150,350,550,750]
+
+
+koord_tree={'Дерево':[(960,230),(1360,230),(1760,230),(2160,230),(2560,230),
+(160,470),(560,470),(960,470),(1360,470),(1760,470),(2160,470),(2560,470),
+(160,710),(560,710),(960,710),(1360,710),(1760,710),(2160,710),(2560,710),
+(160,950),(560,950),(960,950),(1360,950),(1760,950),(2160,950),(560,1190),
+(960,1190),(1360,1190),(1760,1190)],
+   'Куст':[(2830,1070),(2710,1100),(2640,1150),(2460,1200),(2640,1250),
+(2820,1200),(2310,1350),(2490,1300),(2690,1350),(2850,1300),(65,950),(0,1050),
+(30,1150),(180,1150),(0,1250),(130,1250),(260,1250),(390,1250),(30,1350),
+(180,1350),(330,1350),(480,1350),(0,1400),(180,1450),(360,1400),(540,1450),
+(720,1400),(900,1450),(1080,1400),(1260,1450),(1440,1400),(1620,1450),
+(1800,1400),(1980,1450),(2160,1400),(2340,1450),(2520,1400),(2700,1450),
+(2880,1400)],
+   'Папоротник':[(2800, 1450), (2600, 1450), (2400, 1450), (2200, 1450),
+   (2000, 1450), (1800, 1450), (1600, 1450), (1400, 1450), (1200, 1450), (1000, 1450),
+   (800, 1450), (600, 1450), (400, 1450), (200, 1450), (0, 1450)]}
+
+
+back=Image.open('/home/EvaBosch/bot/tree/back.jpg')
+
+
+def which_class(clas):
+    if clas == 'main':
+        main()
+    elif clas == 'facts':
+        facts()
+    elif clas== 'dictionary':
+        dictionary()
+    elif clas == 'tree':
+        tree()
+    elif clas == 'razlog':
+        razlog()
+    elif clas == 'musorki':
+        musorki()
+    elif clas == 'mines':
+        mines()
+    elif clas== 'edit':
+        edit()
+
+
+
+
+
+class main():
+    mclass={}
+
+    kb={}
+
+    cash={}
+
+    igra={}
+
+    con=[]
+
+    raz=[]
+
+    def __init__(self):
+        self.end()      #in case user deleted the chat while playing
+        chat_id=self.chat_id
+        self.starters()
+        bot.send_message(chat_id,self.textbot,
+                          reply_markup=self.kb[self.chat_id],parse_mode='HTML')
+
+    def starters(self):
+        self.textbot='Прости, я тебя не совсем понимаю...\nТы уверен, что написал все правильно?'
+        if self.textuser=='/start' or self.textuser=='Привет':
+            self.textbot=start
+            self.button('start')
+
+        elif self.textuser=='/who' or self.textuser=='А ты кто?':
+            self.textbot=who
+
+        elif self.textuser=='/menu' or self.textuser=='Чем займемся?':
+            self.textbot=menu
+
+        elif self.textuser=='/caps' or self.textuser=='Крышечки?':
+            text='Да ладно, ты забыл про нашу главную валюту – крышечки?)'
+            bot.send_message(self.chat_id,text,reply_markup=self.kb[self.chat_id])
+            self.textbot=caps
+            cap=Image.open('/home/EvaBosch/bot/caps.jpg')
+            bot.send_photo(self.chat_id, cap)
+
+        elif self.textuser=='/trees' or self.textuser=='Какие деревья?':
+            self.textbot=trees
+
+        elif self.textuser=='/pricelist' or self.textuser=='А сколько стоит?':
+            self.textbot=pricelist
+
+        elif self.textuser=='/balance' or self.textuser=='Сколько крышечек?':
+            self.textbot='Я держу все твои крышечки в целости и сохранности, не бойся)\n'+\
+            'На данный момент у тебя {} крышечек'.format(self.cash[self.chat_id])
+
+        elif self.textuser=='/garden' or self.textuser=='Мой сад':
+            self.textbot='А вот и твой сад)'
+            garden=Image.open('/home/EvaBosch/bot/tree/garden{}.jpg'.format(self.chat_id))
+            bot.send_photo(self.chat_id, garden)
+
+        elif self.textuser=='/newplant' or self.textuser=='Новое растение!':
+            self.textbot='Супер! Тогда давай решать, что посадим!'
+            main.mclass[self.chat_id]='tree'
+            self.button('game')
+
+        elif self.textuser=='/facts':
+            self.textbot='Хм, тогда я, наверное, расскажу тебе пару интересных'+\
+                         ' фактов об экологии, окей?'
+            main.mclass[self.chat_id]='facts'
+            self.button('fact_start')
+
+        elif self.textuser=='/dictionary' or self.textuser=='"Словарик"':
+            self.textbot=dicts
+            main.mclass[self.chat_id]='dictionary'
+            self.button('dict')
+
+        elif self.textuser[:-1] in list(dic.keys()) and self.textuser[-1]=='?':
+            self.textbot=dic[self.textuser[:-1]]
+
+        elif self.textuser=='/letsplay' or self.textuser=='Давай поиграем':
+            self.textbot=letsplay
+
+        elif self.textuser=='/games' or self.textuser=='Можем поиграть?':
+            self.textbot='Хорошо, во что?'
+            self.button('which')
+
+        elif self.textuser=='/rules' or self.textuser=='Какие правила?':
+            self.textbot='/rules_razlog\n/rules_trashcans\n/rules_mines'
+
+        elif self.textuser=='/rules_razlog':
+            self.textbot=rules_razlog
+
+        elif self.textuser=='/rules_trashcans':
+            self.textbot=rules_trashcans
+
+        elif self.textuser=='/rules_mines':
+            self.textbot=rules_mines
+
+        elif self.textuser=='/razlog' or self.textuser=='"Что быстрее?"':
+            self.textbot='Супер! Тогда напиши, когда будешь готов!'
+            main.mclass[self.chat_id]='razlog'
+            self.button('game')
+            with open('/home/EvaBosch/bot/raz.txt', "rb") as f:
+                main.raz=pickle.load(f)['raz']
+            with open('/home/EvaBosch/bot/raz.txt', "wb") as f:
+                pickle.dump({'raz':self.raz}, f)
+
+        elif self.textuser=='/trashcans' or self.textuser=='"В какую из?"':
+            self.textbot='Супер! Тогда напиши, когда будешь готов!'
+            main.mclass[self.chat_id]='musorki'
+            self.button('game')
+
+        elif self.textuser=='/mines' or self.textuser=='"Минное поле"':
+            self.textbot='Супер! Тогда напиши, когда будешь готов!'
+            main.mclass[self.chat_id]='mines'
+            self.button('game')
+
+        elif self.textuser=='/end' or self.textuser=='Давай закончим':
+            self.end()
+
+        elif self.textuser=='/edit' and main.chat_id==272650091:
+            self.textbot='Тогда отправь новую категорию в формате "Предмет,'+\
+                          ' срок разложения\nНапример, "Медведь, 10 лет"'
+            main.mclass[self.chat_id]='edit'
+
+    def button(self,tip):
+        self.kb[self.chat_id]=ReplyKeyboardMarkup(resize_keyboard=True,one_time_keyboard=True)
+
+        if tip=='start':
+            but=KeyboardButton('/who')
+            self.kb[self.chat_id].add(but)
+
+        elif tip=='fact':
+            but1=KeyboardButton('Интересно!')
+            but2=KeyboardButton('Не очень...')
+            but3=KeyboardButton('Давай закончим')
+            self.kb[self.chat_id].add(but1,but2)
+            self.kb[self.chat_id].add(but3)
+
+        elif tip=='fact_start':
+            but1=KeyboardButton('Окей!')
+            self.kb[self.chat_id].add(but1)
+
+        elif tip=='dict':
+            but1=KeyboardButton('Общий список')
+            but2=KeyboardButton('Конкретное слово')
+            self.kb[self.chat_id].add(but1,but2)
+
+        elif tip=='word':
+            b,b1,b2,b3,b4,b5=map(KeyboardButton,list(dic.keys())[:6])
+            b6=KeyboardButton('Давай закончим')
+            main.kb[self.chat_id].add(b,b1,b2)
+            main.kb[self.chat_id].add(b3,b4,b5)
+            main.kb[self.chat_id].add(b6)
+
+        elif tip=='which':
+            but1=KeyboardButton('"Что быстрее?"')
+            but2=KeyboardButton('"В какую из?"')
+            but3=KeyboardButton('"Минное поле"')
+            self.kb[self.chat_id].add(but1,but2)
+            self.kb[self.chat_id].add(but3)
+
+        elif tip=='game':
+            but=KeyboardButton('Начинаем!')
+            self.kb[self.chat_id].add(but)
+
+        elif tip=='razlog':
+            self.kb[self.chat_id]=ReplyKeyboardMarkup(resize_keyboard=True)
+            but1=KeyboardButton(main.raz[self.igra[self.chat_id][1]].split(', ')[0])
+            but2=KeyboardButton(main.raz[self.igra[self.chat_id][2]].split(', ')[0])
+            but3=KeyboardButton('Давай закончим')
+            self.kb[self.chat_id].add(but1,but2)
+            self.kb[self.chat_id].add(but3)
+
+        elif tip=='musorki':
+            d_f=self.igra[self.chat_id][1]
+            b1,b2,b3,b4,b5,b6,b7,b8=map(KeyboardButton,d_f.index.values)
+            but=KeyboardButton('Давай закончим')
+            self.kb[self.chat_id]=ReplyKeyboardMarkup(resize_keyboard=True)
+            self.kb[self.chat_id].add(b1,b2)
+            self.kb[self.chat_id].add(b3,b4)
+            self.kb[self.chat_id].add(b5,b6)
+            self.kb[self.chat_id].add(b7,b8)
+            self.kb[self.chat_id].add(but)
+
+        elif tip=='con':
+            but1=KeyboardButton('Россия')
+            but2=KeyboardButton('Франция')
+            but3=KeyboardButton('Испания')
+            self.kb[self.chat_id]=ReplyKeyboardMarkup(resize_keyboard=True)
+            self.kb[self.chat_id].add(but1,but2)
+            self.kb[self.chat_id].add(but3)
+
+        elif tip=='rus':
+            but1=KeyboardButton('Синий')
+            but2=KeyboardButton('Серый')
+            self.kb[self.chat_id]=ReplyKeyboardMarkup(resize_keyboard=True)
+            self.kb[self.chat_id].add(but1,but2)
+
+        elif tip=='spn':
+            but1=KeyboardButton('Зеленый')
+            but2=KeyboardButton('Синий')
+            but3=KeyboardButton('Коричневый')
+            but4=KeyboardButton('Желтый')
+            self.kb[self.chat_id]=ReplyKeyboardMarkup(resize_keyboard=True)
+            self.kb[self.chat_id].add(but1,but3)
+            self.kb[self.chat_id].add(but2,but4)
+
+        elif tip=='fr':
+            but1=KeyboardButton('Желтый')
+            but2=KeyboardButton('Зеленый')
+            but3=KeyboardButton('Белый')
+            self.kb[self.chat_id]=ReplyKeyboardMarkup(resize_keyboard=True)
+            self.kb[self.chat_id].add(but1,but2,but3)
+
+        elif tip=='move':
+            but1=KeyboardButton('Влево')
+            but2=KeyboardButton('Вправо')
+            but3=KeyboardButton('Вперед')
+            self.kb[self.chat_id]=ReplyKeyboardMarkup(resize_keyboard=True)
+            self.kb[self.chat_id].add(but1,but3,but2)
+
+        elif tip=='false':
+            but1=KeyboardButton('1')
+            but2=KeyboardButton('2')
+            but3=KeyboardButton('3')
+            but4=KeyboardButton('4')
+            but5=KeyboardButton('5')
+            self.kb[self.chat_id]=ReplyKeyboardMarkup(resize_keyboard=True)
+            self.kb[self.chat_id].add(but1,but2,but3)
+            self.kb[self.chat_id].add(but4,but5)
+
+        elif tip=='res':
+            but1=KeyboardButton('Давай еще раз')
+            but2=KeyboardButton('Давай закончим')
+            self.kb[self.chat_id].add(but1,but2)
+
+        elif tip=='tr_pl':
+            b1,b2,b3=map(KeyboardButton,main.igra[self.chat_id][0][0])
+            self.kb[self.chat_id]=ReplyKeyboardMarkup(resize_keyboard=True)
+            self.kb[self.chat_id].add(b1)
+            self.kb[self.chat_id].add(b2,b3)
+
+        elif tip=='tr':
+            b,b1,b2=map(KeyboardButton,main.igra[self.chat_id][0][1])
+            self.kb[self.chat_id]=ReplyKeyboardMarkup(resize_keyboard=True)
+            self.kb[self.chat_id].add(b,b1)
+            self.kb[self.chat_id].add(b2)
+
+        elif tip=='bsh':
+            b,b1,b2,b3,b4,b5,b6=map(KeyboardButton,main.igra[self.chat_id][0][2])
+            self.kb[self.chat_id]=ReplyKeyboardMarkup(resize_keyboard=True)
+            self.kb[self.chat_id].add(b,b1)
+            self.kb[self.chat_id].add(b2,b3)
+            self.kb[self.chat_id].add(b4,b5)
+            self.kb[self.chat_id].add(b6)
+
+        elif tip=='cl':
+            b,b1,b2,b3,b4,b5,b6,b7,b8=map(KeyboardButton,main.igra[self.chat_id][0][3])
+            self.kb[self.chat_id]=ReplyKeyboardMarkup(resize_keyboard=True)
+            self.kb[self.chat_id].add(b,b1,b2)
+            self.kb[self.chat_id].add(b3,b4,b5)
+            self.kb[self.chat_id].add(b6,b7,b8)
+
+    def end(self):
+        self.textbot='Хорошо)'
+        main.mclass[self.chat_id]='main'
+        main.igra[self.chat_id]=[]
+        self.kb[self.chat_id]=ReplyKeyboardRemove()
+
+
+class tree(main):
+    def __init__(self):        #igra=['Начинаем!','Дерево','Сосна','Синий']
+        main.igra[self.chat_id].append(self.textuser)
+        price={'Дерево':2000,'Куст':1000,'Папоротник':500}
+        dlin=len(self.igra[self.chat_id])
+
+        self.starters()
+        if self.textbot!='Прости, я тебя не совсем понимаю...\nТы уверен, что написал все правильно?':
+            bot.send_message(self.chat_id,self.textbot,reply_markup=self.kb[self.chat_id])
+            self.end()
+            self.textbot='Что дальше?)'
+
+        elif dlin==1:
+            self.textbot='Окей! Что посадим, дерево или что-то другое?'
+            main.igra[self.chat_id][0]=[
+                ['Дерево','Куст','Папоротник'],['Дуб','Сосна','Ива'],
+                ['Острием вниз','Острием вверх','Черви','Пики','Овал острием вниз',
+                'Овал острием вверх','Укороченный'],
+                ['Красный','Оранжевый','Желтый','Фиолетовый','Синий','Голубой',
+                'Зеленый','Белый','Розовый']
+                ]
+            self.button('tr_pl')
+
+        elif dlin==2 and self.igra[self.chat_id][-1] in self.igra[self.chat_id][0][0]:
+            if self.cash[self.chat_id]>=price[self.textuser]:
+                if self.textuser=='Дерево':
+                    self.button('tr')
+                    self.textbot='Хорошо, какое именно?'
+
+                elif self.textuser=='Куст':
+                    self.button('bsh')
+                    self.textbot='Хорошо, какой формы?'
+
+                elif self.textuser=='Папоротник':
+                    self.button('cl')
+                    main.igra[self.chat_id].append('Папаротник')
+                    self.textbot='Неплохо. Последний вопрос, что насчет цвета?)'
+            else:
+                self.end()
+                self.textbot='Упс.. Кажется, тебе не хватает крышечек!'
+
+        elif dlin==3 and ((self.textuser in self.igra[self.chat_id][0][1]) or (self.textuser in self.igra[self.chat_id][0][2]) or (self.igra[self.chat_id][-1] == 'Папаротник')):
+            self.textbot='Неплохо. Последний вопрос, что насчет цвета?)'
+            self.button('cl')
+
+        elif len(self.igra[self.chat_id])==4 and self.textuser in self.igra[self.chat_id][0][3]:
+            pic='/home/EvaBosch/bot/tree/'+main.igra[self.chat_id][2]+'_'+main.igra[self.chat_id][3]+'.png'
+            pic1='/home/EvaBosch/bot/tree/'+main.igra[self.chat_id][1]+'_'+main.igra[self.chat_id][3]+'.jpg'
+            thread1 = Thread(target=self.new_tree, args=(pic,main.igra[self.chat_id][1]))
+            thread1.start()
+            with open(pic1, "rb") as file:
+                plant = file.read()
+                bot.send_photo(self.chat_id, plant)
+            a=main.igra[self.chat_id][1]
+            main.cash[self.chat_id]=main.cash[self.chat_id]-price[a]
+            self.end()
+            tim={'Дерево':'два дня','Куст':'день','Папоротник':'шесть часов'}
+            self.textbot='Класс! Теперь через {} {} добавится в сад'.format(tim[a],a.lower())
+
+        else:
+            main.igra[self.chat_id]=main.igra[self.chat_id][:-1]
+
+        bot.send_message(self.chat_id,self.textbot,reply_markup=self.kb[self.chat_id])
+
+    def new_tree(self,pic,typ):
+        tim={'Дерево':172800,'Куст':86400,'Папоротник':21600}
+        time.sleep(tim[typ])
+        garden=Image.open('/home/EvaBosch/bot/tree/garden{}.jpg'.format(self.chat_id))
+        with Image.open(pic).convert('RGBA') as tree:
+            garden.paste(tree, koord_tree[typ].pop(0), mask = tree)
+            garden.save('/home/EvaBosch/bot/tree/garden{}.jpg'.format(self.chat_id))
+
+
+class facts(main):
+    def __init__(self):
+        self.starters()
+        if self.textbot!='Прости, я тебя не совсем понимаю...\nТы уверен, что написал все правильно?':
+            bot.send_message(self.chat_id,self.textbot,reply_markup=self.kb[self.chat_id])
+            self.end()
+            self.textbot='Что дальше?)'
+
+        else:
+            if self.igra[self.chat_id]!=[] and (self.textuser=='Интересно!' or self.textuser=='Не очень...'):
+                rate=pd.read_csv('/home/EvaBosch/bot/facts/try.csv',dtype={'ind':str})
+                rate=rate.set_index('ind')
+                rate.loc[main.igra[self.chat_id][0][:3],self.textuser]+=1
+                rate.to_csv('/home/EvaBosch/bot/facts/try.csv')
+
+            f = open('/home/EvaBosch/bot/facts/2facts.txt', 'r',encoding='utf-8' )
+            main.igra[self.chat_id]=[choice(f.read().split('\n')[:-1])]
+            self.button('fact')
+            bot.send_message(self.chat_id,self.igra[self.chat_id][0][3:],reply_markup=self.kb[self.chat_id])
+            f.close()
+
+
+
+
+class dictionary(main):
+        def __init__(self):
+            self.starters()
+            if self.textbot!='Прости, я тебя не совсем понимаю...\nТы уверен, что написал все правильно?':
+                bot.send_message(self.chat_id,self.textbot,reply_markup=self.kb[self.chat_id])
+                self.end()
+                self.textbot='Что дальше?)'
+
+            elif self.textuser=='Общий список':
+                self.textbot='Сейчас есть две категории информации\n/1 Слова из игры "Что быстрее?"\n/2 Правила сортировки мусора в разных странах'
+                self.kb[self.chat_id]=ReplyKeyboardRemove()
+
+            elif self.textuser=='Конкретное слово':
+                self.textbot='Тогда пиши его, как надо оформить запрос ты уже знаешь)'
+
+            elif self.textuser in list(dic.keys()):
+                self.textbot=dic[self.textuser]
+
+            elif self.textuser=='/1':
+                self.textbot='На данный момент в словаре есть такие слова, как:\nУпаковка tetra pak\nПластик PET (ПЭТ)\n'+\
+                'Пластик HDPE (ПНД)\nПластик LDPE (ПВД)\nПластик PP (ПП)\nПластик PS (ПС)\nНадеюсь, тебя интересует что-то из этого)'
+                self.button('word')
+
+            elif self.textuser=='/2':
+                self.textbot='Хорошо, какая страна тебя интересует?)'
+                self.button('con')
+                but=KeyboardButton('Давай закончим')
+                main.kb[self.chat_id].add(but)
+
+            else:
+                'Прости, я тебя не совсем понимаю...\nВероятно, слова, которое тебя интересует, просто нет в словаре!'
+
+            bot.send_message(self.chat_id,self.textbot,reply_markup=self.kb[self.chat_id])
+
+
+class razlog(main):    #igra=['Что разлагается дольше?', nom1, nom2]
+    def __init__(self):
+        self.starters()
+        if self.textbot!='Прости, я тебя не совсем понимаю...\nТы уверен, что написал все правильно?':
+            bot.send_message(self.chat_id,self.textbot,reply_markup=self.kb[self.chat_id])
+            self.end()
+            self.textbot='Что дальше?)'
+
+        elif self.igra[self.chat_id]==[]:
+            self.ask()
+            self.textbot=self.igra[self.chat_id][0]
+
+        else:
+            self.answer()
+            bot.send_message(self.chat_id,self.textbot)
+            self.ask()
+            self.textbot=self.igra[self.chat_id][0]
+
+        bot.send_message(self.chat_id,self.textbot,reply_markup=self.kb[self.chat_id])
+
+    def ask(self):
+        nom1=randint(0,len(self.raz)-1)
+        nom2=randint(0,len(self.raz)-1)
+        while nom1==nom2:
+            nom2=randint(0,len(self.raz)-1)
+        var1=self.raz[nom1].split(', ')
+        var2=self.raz[nom2].split(', ')
+        question="Что разлагается дольше?\n{} или {}?".format(var1[0],var2[0].lower())
+        main.igra[self.chat_id]=[question,nom1,nom2]
+        self.button('razlog')
+
+    def answer(self):
+        nom1=self.igra[self.chat_id][1]
+        nom2=self.igra[self.chat_id][2]
+        var1=self.raz[nom1].split(', ')
+        var2=self.raz[nom2].split(', ')
+        ver_otv=self.raz[max(nom1,nom2)].split(', ')[0]
+        if var1[1]==var2[1] and (self.textuser==var1[0] or self.textuser==var2[0]):
+            self.textbot='И да, и нет) И {}, и {} разлагаются {}'.format(var1[0].lower(),var2[0].lower(),var1[1])
+        elif self.textuser==ver_otv:
+            self.textbot='Верно! {} разлагается {}, а {} - {}'.format(var1[0],var1[1],var2[0].lower(),var2[1])
+            main.cash[self.chat_id]+=5
+        elif self.textuser!=ver_otv and (self.textuser==var1[0] or self.textuser==var2[0]):
+            self.textbot='Неверно! {} разлагается {}, а {} - {}'.format(var1[0],var1[1],var2[0].lower(),var2[1])
+            main.cash[self.chat_id]-=5
+
+
+class edit(main):
+    def __init__(self):
+        self.starters()
+        if self.textbot!='Прости, я тебя не совсем понимаю...\nТы уверен, что написал все правильно?':
+            bot.send_message(self.chat_id,self.textbot,reply_markup=self.kb[self.chat_id])
+            self.end()
+            self.textbot='Что дальше?)'
+
+        with open('/home/EvaBosch/bot/raz.txt', "rb") as fp:
+            raz=pickle.load(fp)['raz']
+
+        with open('/home/EvaBosch/bot/raz.txt', "wb") as fp:
+            a_w=self.textuser.split(' ')
+            if len (a_w)>2:
+                date_w=a_w[-1]
+                num_w=a_w[-2]
+                dates=['день', 'дня', 'дней', 'месяц', 'месяца', 'месяцев', 'год', 'года', 'лет']
+                if date_w in dates and num_w.isdigit():
+                    a=list(map(lambda x: x.split(' '),raz) )
+                    date=[item[-1] for item in a]
+                    num=[item[-2] for item in a]
+
+                    ind=dates.index(date_w)//3
+                    date_true=list(filter(lambda x : date[x]==dates[3*ind], range(len(date))))+\
+                    list(filter(lambda x : date[x]==dates[3*ind+1], range(len(date))))+\
+                    list(filter(lambda x : date[x]==dates[3*ind+2], range(len(date))))
+                    num_true=list(filter(lambda x : float(num[x])<=int(num_w), date_true))
+                    if num_true==[]:
+                        raz.insert(0,self.textuser)
+                    else:
+                        raz.insert(num_true[-1]+1,self.textuser)
+            main.raz=raz
+            pickle.dump({'raz':raz}, fp)
+        bot.send_message(self.chat_id,'Хорошо')
+
+
+class musorki(main):
+    def __init__(self):     #igra=[{'Синий':[],'Серый':[]},
+        self.starters()     #pd({'file':[bag],'coord1':[50,150],'coord2':[430,380],'or_bak':['ser'],'bak':['none']},index=['Мешок']),  id(del)]'Бутылка'
+        con={'Россия':[['Синий','Серый'],4,{'Синий':[5,105,205,305],'Серый':[480,580,680,780]},'rus',[5,105,205,305,480,580,680,780]],
+             'Испания':[['Зеленый','Синий','Коричневый','Желтый'],2,{'Зеленый':[44,144],'Синий':[246,346],
+                                                                     'Коричневый':[448,548],'Желтый':[654,754]},'spn',[246,346,448,548,44,144,654,754]],
+             'Франция':[['Желтый','Зеленый','Белый'],3,{'Желтый':[10,115,220],'Зеленый':[340,440,540],'Белый':[650,755]},'fr',[10,115,220,340,440,540,650,755]]}
+
+        if self.textbot!='Прости, я тебя не совсем понимаю...\nТы уверен, что написал все правильно?':
+            bot.send_message(self.chat_id,self.textbot,reply_markup=self.kb[self.chat_id])
+            self.end()
+            main.con[self.chat_id]=[]
+            self.textbot='Что дальше?)'
+
+        elif self.igra[self.chat_id]==[] and self.textuser in con.keys():
+            musorki.con[self.chat_id]=con[self.textuser]
+            self.new()
+            self.button('musorki')
+
+        elif self.igra[self.chat_id]==[] or len(self.igra[self.chat_id])==1:
+            main.igra[self.chat_id]=[]
+            self.textbot='Какая страна?'
+            self.button('con')
+
+        else:
+            self.img=Image.open('/home/EvaBosch/bot/musorki/musorki{}.jpg'.format(str(self.chat_id)))
+            self.answer()
+            self.img.save("/home/EvaBosch/bot/musorki/musorki{}.jpg".format(str(self.chat_id)))
+
+        if (self.textbot=='Окей, какой предмет дальше?)' or self.textbot=='Места заняты') or (self.textbot=='Выбери предмет' or self.textbot=='Хорошо, а что теперь?'):
+            with open('/home/EvaBosch/bot/musorki/musorki{}.jpg'.format(str(self.chat_id)), "rb") as file:
+                answ = file.read()
+            main.igra[self.chat_id].append(self.message_id+1)
+            bot.send_photo(self.chat_id, answ)
+
+        bot.send_message(self.chat_id,self.textbot,reply_markup=self.kb[self.chat_id])
+
+    def new(self):
+        img = Image.open('/home/EvaBosch/bot/musorki/baki_{}.jpg'.format(self.con[self.chat_id][3]))
+        img_new=Image.open('/home/EvaBosch/bot/musorki/new_{}.jpg'.format(self.con[self.chat_id][3]))
+        koord=[50,250,450,650,150,350,550,750]
+
+        with open('/home/EvaBosch/bot/musorki/{}.txt'.format(self.con[self.chat_id][3]), "rb") as fp:
+            ddf=pickle.load(fp)
+        df=pd.DataFrame(ddf)
+        df=df.set_index('index')
+        with open('/home/EvaBosch/bot/musorki/{}.txt'.format(self.con[self.chat_id][3]), "wb") as fp:
+            pickle.dump(ddf,fp)
+
+        col=list(map(lambda x: sample(list(df[df['or_bak']==x].index.values),  self.con[self.chat_id][1]), self.con[self.chat_id][0]))
+        col=[val for sublist in col for val in sublist]
+        col=col[:8]
+        stuff=sample(col, 8)
+        k430=sample(koord[:4],4)
+        k380=sample(koord[4:],4)
+
+        df.loc[stuff[:4],'coord2']=0      #вносим данные в БД
+        df.loc[stuff[4:],'coord2']=1
+        df_new=df.sort_values(by=['coord2'])
+        df_new=df_new.loc[stuff]
+        df_new['coord2']=[430]*4+[380]*4
+        df_new['coord1']=k430+k380
+
+        img.paste(img_new,(0,220))         #создаем картинку
+        list(map(lambda x: img.paste(df_new.loc[x,'file'], (df_new.loc[x,'coord1'],df_new.loc[x,'coord2'])), stuff))
+
+        main.igra[self.chat_id]=[self.con[self.chat_id][2],df_new]
+        self.textbot='Выбери предмет'
+
+        img.save('/home/EvaBosch/bot/musorki/musorki{}.jpg'.format(str(self.chat_id)))
+
+    def answer(self):
+        if self.textuser in self.igra[self.chat_id][1].index.values:
+            self.textbot='Хорошо, куда?'
+
+            main.igra[self.chat_id].insert(3,self.textuser)
+            self.button(self.con[self.chat_id][3])
+
+        elif len(self.igra[self.chat_id])>=4 and self.textuser in self.con[self.chat_id][0]:
+            a=self.igra[self.chat_id][3]
+            main.igra[self.chat_id]=self.igra[self.chat_id][:3]
+            try:
+                bot.delete_message(self.chat_id, main.igra[self.chat_id][2])
+            except:
+                pass
+            main.igra[self.chat_id]=self.igra[self.chat_id][:2]
+            self.button('musorki')
+
+            size=(100,100)
+            img_sq = Image.open('/home/EvaBosch/bot/musorki/squ.jpg')
+            img_sq.thumbnail(size)
+            w = Image.open('/home/EvaBosch/bot/musorki/w.jpg')
+            w.thumbnail(size)
+
+            if self.igra[self.chat_id][0][self.textuser]!=[]:
+                if self.igra[self.chat_id][1].loc[a,'coord2']==270:
+                    old_bak=self.igra[self.chat_id][1].loc[a,'bak']
+                    new_bak=self.textuser
+
+                    self.img.paste(self.igra[self.chat_id][1].loc[a,'file'], (self.igra[self.chat_id][0][new_bak][0],270))
+                    self.img.paste(img_sq, tuple(self.igra[self.chat_id][1].loc[a,['coord1','coord2']]))
+                    main.igra[self.chat_id][0][old_bak].append(main.igra[self.chat_id][1].loc[a,'coord1'])
+                    main.igra[self.chat_id][1].loc[a,'coord1']=self.igra[self.chat_id][0][new_bak][0]
+                    main.igra[self.chat_id][1].loc[a,'coord2']=270
+                    del main.igra[self.chat_id][0][new_bak][0]
+                    self.igra[self.chat_id][1].loc[a,'bak']=new_bak
+                    self.textbot='Окей, какой предмет дальше?)'
+
+                else:
+                    self.img.paste(self.igra[self.chat_id][1].loc[a,'file'], (self.igra[self.chat_id][0][self.textuser][0],270))
+                    self.img.paste(w, tuple(self.igra[self.chat_id][1].loc[a,['coord1','coord2']]))
+                    main.igra[self.chat_id][1].loc[a,'coord1']=self.igra[self.chat_id][0][self.textuser][0]
+                    main.igra[self.chat_id][1].loc[a,'coord2']=270
+                    main.igra[self.chat_id][1].loc[a,'bak']=self.textuser
+                    del main.igra[self.chat_id][0][self.textuser][0]
+                    self.textbot='Окей, какой предмет дальше?)'
+
+            else:
+                self.textbot='Места заняты'
+
+        if list(self.igra[self.chat_id][1]['coord2'])==[270]*8:
+            self.result()
+
+    def result(self):
+        size=(100,100)
+        w = Image.open('/home/EvaBosch/bot/musorki/w.jpg')
+        w.thumbnail(size)
+
+        d_f=self.igra[self.chat_id][1].sort_values(by=['or_bak'],ascending=False)
+        res=80-(10*d_f[d_f['or_bak']==d_f['bak']].shape[0])
+
+        main.cash[self.chat_id]+=(80-2*res)
+        if res==0:
+            bot.send_message(self.chat_id, 'Что ж, круто! Все верно')
+        else:
+            list(map(lambda x: self.img.paste(w, (x,270)), self.con[self.chat_id][4]))#создаем картинку
+            list(map(lambda x,y: self.img.paste(d_f.loc[x,'file'], (y,270)), d_f.index.values, self.con[self.chat_id][4]))
+            answ='\n'.join(list(d_f[d_f['or_bak']!=d_f['bak']].index.values))
+            bot.send_message(self.chat_id, 'Ну.. не совсем. Ты поместил в неправильные баки такие предметы, как:\n'+\
+                             '{}\nВот, как все должно было располагаться)'.format(answ))
+
+        main.igra[self.chat_id]=[]
+        self.button('res')
+        self.textbot='Хорошо, а что теперь?'
+
+
+class mines(main):
+    def __init__(self):
+        self.starters()
+        if self.textbot!='Прости, я тебя не совсем понимаю...\nТы уверен, что написал все правильно?':
+            bot.send_message(self.chat_id,self.textbot,reply_markup=self.kb[self.chat_id])
+            self.end()
+            self.textbot='Что дальше?)'
+
+        elif len(self.igra[self.chat_id])==0 or self.textuser=='Давай еще раз':
+            self.new()
+
+        elif self.textuser in ['1','2','3','4','5'] and self.igra[self.chat_id][1]==[]:
+            self.igra[self.chat_id][1]=[int(self.textuser)-1,6]
+            self.answer()
+
+        elif self.textuser in ['Вперед','Вправо','Влево']:
+            self.answer()
+
+        bot.send_message(self.chat_id,self.textbot,reply_markup=self.kb[self.chat_id])
+
+    def new(self):
+        pose=[]  #pose[x,y]
+        b={}
+        list(map(lambda x: b.update({x:[0]*5}),range(7)))
+        a=pd.DataFrame(b)
+        m=0
+        n=randint(0,4)
+        a.loc[n,m]=1
+        while list(a[6])==[0]*5:
+            h=randint(1,2)
+            if h ==1 and n<4:
+                k=randint(1,4-n)
+                for i in range (n,n+k+1):
+                    a.loc[i,m]=1
+                m+=1
+                n+=k
+                a.loc[n,m]=1
+            elif h ==2 and n>0:
+                k=randint(1,n)
+                m+=1
+                a.loc[n,m]=1
+                for i in range(n-k,n+1):
+                    a.loc[i,m]=1
+                n-=k
+
+        coin=sum(list(map(lambda x: len(a[a[x]==1]),range(7))))
+        sets=a.T
+        main.igra[self.chat_id]=[sets,pose,[coin,0],self.message_id+1]
+        self.textbot='Выбери цифру, с которой начнем'
+        self.button('false')
+
+        with open('/home/EvaBosch/bot/mines/ground.jpg', "rb") as file:
+                ground = file.read()
+                bot.send_photo(self.chat_id, ground)
+
+    def answer(self):
+        if (self.textuser in ['1','2','3','4','5']) or (self.textuser=='Вперед') or (self.textuser=='Вправо' and self.igra[self.chat_id][1][0]<4) or (self.textuser=='Влево' and self.igra[self.chat_id][1][0]>0):
+            game=Image.open('/home/EvaBosch/bot/mines/ground.jpg')
+            self.button('move')
+
+            if self.textuser=='Вперед':
+                self.igra[self.chat_id][1][1]-=1
+            elif self.textuser=='Вправо':
+                self.igra[self.chat_id][1][0]+=1
+            elif self.textuser=='Влево':
+                self.igra[self.chat_id][1][0]-=1
+
+            with open('/home/EvaBosch/bot/mines/df.txt', "rb") as fp:
+                df= pickle.load(fp)
+            with open('/home/EvaBosch/bot/mines/df.txt', "wb") as fp:
+                pickle.dump(df, fp)
+
+            place=self.igra[self.chat_id][0].loc[self.igra[self.chat_id][1][1],self.igra[self.chat_id][1][0]]
+            if place==1:
+                thing=choice(list(df[df['or_bak']=='Синий'].index.values))
+                game.paste(df.loc[thing,'file'],(73*self.igra[self.chat_id][1][0],73*self.igra[self.chat_id][1][1]))
+                self.textbot='Хорошо!'
+                if self.igra[self.chat_id][1][1]==0:
+                    coin=(self.igra[self.chat_id][2][0]-self.igra[self.chat_id][2][1])*10
+                    main.cash[self.chat_id]+=coin
+                    self.textbot='Молодец! Ты заработал {} монеток.\nХочешь сыграть еще раз?)'.format(coin)
+                    self.button('res')
+            else:
+                thing=choice(list(df[df['or_bak']=='Серый'].index.values))
+                game.paste(df.loc[thing,'file'],(73*self.igra[self.chat_id][1][0],73*self.igra[self.chat_id][1][1]))
+                self.textbot='Неа... \n{} пока не из тех предметов, которые у нас перерабатывают\nС какой цифры начнем?'.format(thing)
+                self.igra[self.chat_id][1]=[]
+                main.igra[self.chat_id][2][1]+=1
+                self.button('false')
+
+            game.save('/home/EvaBosch/bot/mines/game.jpg'.format(self.chat_id))
+            with open('/home/EvaBosch/bot/mines/game.jpg'.format(self.chat_id), "rb") as file:
+                game = file.read()
+                bot.send_photo(self.chat_id, game)
+
+            try:
+                bot.delete_message(self.chat_id, main.igra[self.chat_id][3])
+                bot.delete_message(self.chat_id, main.igra[self.chat_id][3]-1)
+            except:
+                pass
+            main.igra[self.chat_id]=main.igra[self.chat_id][:3]
+            main.igra[self.chat_id].append(self.message_id+1)
+
+        else:
+            self.textbot='Движение невозможно'
+
+
+
+@app.route('/',methods=['POST','GET'])
+def index():
+    if request.method=='POST':
+        r=request.get_json()
+        main.chat_id=r['message']['chat']['id']
+        main.textuser=r['message']['text']
+        main.message_id=r['message']['message_id']
+
+        with open('/home/EvaBosch/bot/info.txt', "rb") as fp:
+            main.cash= pickle.load(fp)
+            main.mclass= pickle.load(fp)
+            main.igra= pickle.load(fp)
+            main.con= pickle.load(fp)
+            main.kb= pickle.load(fp)
+
+        if main.chat_id not in main.cash.keys():
+            back.save('/home/EvaBosch/bot/tree/garden{}.jpg'.format(main.chat_id))
+            main.cash.update({main.chat_id:0})
+            main.mclass.update({main.chat_id:'main'})
+            main.igra.update({main.chat_id:[]})
+            main.con.update({main.chat_id:[]})
+            main.kb.update({main.chat_id:ReplyKeyboardMarkup(resize_keyboard=True,one_time_keyboard=True)})
+            with open('/home/EvaBosch/bot/info.txt', "wb") as f:
+                list(map(lambda x: pickle.dump(x, f), [main.cash,main.mclass,main.igra,main.kb]))
+
+        # main.cash[main.chat_id]+=100000
+        which_class(main.mclass[main.chat_id])
+
+        with open('/home/EvaBosch/bot/info.txt', "wb") as f:
+            list(map(lambda x: pickle.dump(x, f), [main.cash,main.mclass,main.igra,main.con,main.kb]))
+
+    return '<h1>Test flask app</>'
+
+
+if __name__=='__main__':
+    app.run()
